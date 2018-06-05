@@ -20,13 +20,13 @@ class HyperOptTuner(object):
         self._max_evals = max_evals
         self._tuned_params = None
 
-        if objective or metric is None:
+        if objective is None or metric is None:
             raise ValueError(
                 'You did not specify the objective or'
                 'the evaluation metric. Cannot continue')
 
         if objective == 'multiclass':
-            if num_classes if None:
+            if num_classes is None:
                 raise ValueError(
                     'objective is multiclass but num_classes has not been given'
                     'cannot continue')
@@ -47,8 +47,10 @@ class HyperOptTuner(object):
                           valid_sets=[self._train, self._dvalid],
                           early_stopping_rounds=self._early_stopping,
                           verbose_eval=False)
-        n_epochs = model.best_ntree_limit
-        score = model.best_score
+
+
+        n_epochs = model.best_iteration
+        score = list(model.best_score['valid_1'].values())[0]
         params['n_estimators'] = n_epochs
         params = dict([(key, rounded(params[key]))
                        if type(params[key]) == float
@@ -58,19 +60,18 @@ class HyperOptTuner(object):
         print("Trained with: ")
         print(params)
         print("\tScore {0}\n".format(score))
-        return {'loss': 1 - score, 'status': STATUS_OK, 'params': params}
+        return {'loss': score, 'status': STATUS_OK, 'params': params}
 
     def optimize(self, trials):
         space = {
             'n_estimators': 10000,  # hp.quniform('n_estimators', 10, 1000, 10),
             'num_leaves': hp.choice('num_leaves', np.arange(10, 200, dtype=int)),
-            'min_child_weight': hp.quniform(0.01, 10, 0.5),
+            'min_child_weight': hp.quniform('min_child_weight', 0.01, 10, 0.5),
             'subsample': hp.uniform('subsample', 0.4, 1),
             'min_sum_hessian_in_leaf': hp.loguniform('min_sum_hessian_in_leaf', 0, 2.3),
             'colsample_bytree': hp.quniform('colsample_bytree', 0.4, 1, 0.25),
             'metric': self._metric,
             'objective': self._objective,
-            'silent': 1
         }
 
         if self._num_classes is not None:
